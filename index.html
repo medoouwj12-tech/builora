@@ -5,8 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0a101c">
   <meta name="description" content="BUILDORA — Software & Programming | مساحة تشغيل وإدارة علاقات العملاء">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>BUILDORA | مساحة التشغيل</title>
+  <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/jpeg" href="/buildora-mark.jpg">
+  <link rel="apple-touch-icon" href="/icons/buildora-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@300;400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -15,6 +19,10 @@
   <script defer src="app.js"></script>
 </head>
 <body>
+  <aside id="installPrompt" class="install-prompt hidden" aria-label="تثبيت تطبيق BUILDORA" aria-live="polite">
+    <div class="install-copy"><span class="install-symbol" aria-hidden="true">↓</span><div><b>ثبّت تطبيق BUILDORA</b><small id="installPromptText">ثبّته على جهازك عشان تفتحه بسرعة من غير ما تدور على اللينك.</small></div></div>
+    <div class="install-actions"><button class="btn btn-primary" type="button" data-action="install-app">تثبيت التطبيق</button><button class="install-dismiss" type="button" data-action="dismiss-install" aria-label="إغلاق">×</button></div>
+  </aside>
   <div id="loginScreen" class="login-screen"></div>
   <div id="appShell" class="app-shell hidden">
     <aside class="sidebar" id="sidebar">

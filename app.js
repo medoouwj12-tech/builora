@@ -25,7 +25,48 @@
   state.team = state.team.map(member => ({ ...member, password: member.password || '123456' }));
   state.activities ||= []; state.offers ||= []; state.projects ||= []; state.target ||= 250000;
   let currentUser = null; let currentRoute = 'overview'; let leadFilter = ''; let apiMode = false; let setupRequired = false; let registerMode = false;
+  let deferredInstallPrompt = null;
   const shell = $('#appShell'), login = $('#loginScreen'), content = $('#content'), modalRoot = $('#modalRoot');
+
+  function setupInstallPrompt() {
+    const card = $('#installPrompt');
+    const message = $('#installPromptText');
+    const installButton = card?.querySelector('[data-action="install-app"]');
+    if (!card) return;
+    const standalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    const hideCard = () => card.classList.add('hidden');
+    const showCard = () => {
+      if (standalone() || localStorage.getItem('buildora_install_dismissed_v1') === '1') return;
+      card.classList.remove('hidden');
+    };
+    if (standalone()) { hideCard(); return; }
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+    const ua = navigator.userAgent || '';
+    if (/iPhone|iPad|iPod/i.test(ua)) message.textContent = 'على iPhone أو iPad: افتح «مشاركة» في Safari ثم اختر «إضافة إلى الشاشة الرئيسية».';
+    else if (/Android/i.test(ua)) message.textContent = 'على Android: اضغط تثبيت التطبيق، أو افتح قائمة ⋮ واختر «تثبيت التطبيق».';
+    else message.textContent = 'ثبّته على جهازك عشان تفتحه بسرعة من غير ما تدور على اللينك.';
+    window.addEventListener('beforeinstallprompt', event => {
+      event.preventDefault(); deferredInstallPrompt = event;
+      if (installButton) installButton.textContent = 'تثبيت التطبيق';
+    });
+    window.addEventListener('appinstalled', () => {
+      deferredInstallPrompt = null; localStorage.setItem('buildora_install_dismissed_v1', '1'); hideCard();
+    });
+    setTimeout(showCard, 900);
+  }
+
+  async function installApp() {
+    if (!deferredInstallPrompt) {
+      const message = $('#installPromptText');
+      if (/iPhone|iPad|iPod/i.test(navigator.userAgent || '')) {
+        if (message) message.textContent = 'في Safari اضغط زر المشاركة ثم «إضافة إلى الشاشة الرئيسية».';
+      } else if (message) message.textContent = 'افتح قائمة المتصفح (⋮ أو ⋯) واختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».';
+      return;
+    }
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+  }
 
   function save() {
     if (!apiMode) { localStorage.setItem(KEY, JSON.stringify(state)); return; }
@@ -269,7 +310,9 @@
     const blob = new Blob(['\uFEFF' + rows.map(r => r.map(quote).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'madar-customers.csv'; a.click(); URL.revokeObjectURL(a.href); toast('بدأ تنزيل ملف العملاء');
   }
   function onAction(action, id) {
-    if (action === 'toggle-auth') { registerMode = !registerMode; loginScreen(); }
+    if (action === 'install-app') installApp();
+    else if (action === 'dismiss-install') { $('#installPrompt').classList.add('hidden'); localStorage.setItem('buildora_install_dismissed_v1', '1'); }
+    else if (action === 'toggle-auth') { registerMode = !registerMode; loginScreen(); }
     else if (action === 'approve-member') reviewMember(id, true);
     else if (action === 'reject-member') reviewMember(id, false);
     else if (action === 'new-lead') leadModal(); else if (action === 'edit-lead') { const l = state.leads.find(x => x.id === id); if (l && (currentUser.role === 'المدير' || l.owner === currentUser.id)) { closeModal(); leadModal(l); } } else if (action === 'view-lead') viewLead(id); else if (action === 'claim-lead') claimLead(id); else if (action === 'delete-lead') deleteLead(id); else if (action === 'remove-member') removeMember(id); else if (action === 'log-contact') { closeModal(); contactModal(id); } else if (action === 'new-offer') offerModal(); else if (action === 'new-project') projectModal(); else if (action === 'new-member') memberModal(); else if (action === 'change-password') passwordModal(); else if (action === 'import') importCsv(); else if (action === 'export-csv') downloadCsv(); else if (action === 'save-target' && currentUser.role === 'المدير') { state.target = Number($('#targetInput')?.value || 0); save(); render(); toast('تم تحديث الهدف'); }
@@ -328,6 +371,7 @@
   $('#globalSearch').addEventListener('keydown', e => { if (e.key === 'Enter') { leadFilter = e.target.value; setRoute('leads'); setTimeout(() => { const input = $('#leadSearch'); if (input) { input.value = leadFilter; input.dispatchEvent(new Event('input')); } }, 0); } });
   document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('#globalSearch').focus(); } if (e.key === 'Escape') { closeModal(); $('#sidebar').classList.remove('open'); } if ((e.ctrlKey || e.metaKey) && /^[1-6]$/.test(e.key)) { const map = { '1': 'overview', '2': 'leads', '3': 'team', '4': 'offers', '5': 'projects', '6': 'reports' }; setRoute(map[e.key]); } });
   async function boot() {
+    setupInstallPrompt();
     if (location.protocol === 'http:' || location.protocol === 'https:') {
       try {
         const bootInfo = await apiRequest('/api/bootstrap'); apiMode = true; setupRequired = bootInfo.setupRequired;
