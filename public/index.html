@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a101c">
+  <meta name="description" content="مدار — مساحة تشغيل وإدارة علاقات العملاء لفريقك">
+  <title>مدار | مساحة التشغيل</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@300;400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="seed.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <div id="loginScreen" class="login-screen"></div>
+  <div id="appShell" class="app-shell hidden">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand-lockup"><div class="brand-mark"><span>م</span><i></i></div><div><b>مَدار</b><small>مساحة التشغيل</small></div></div>
+      <div class="workspace-chip"><span class="live-dot"></span><span>شركة تطوير البرمجيات</span><span class="chevron">⌄</span></div>
+      <div class="nav-caption">القائمة الرئيسية</div>
+      <nav class="main-nav">
+        <button class="nav-item active" data-route="overview"><span class="nav-icon">◫</span><span>نظرة عامة</span><kbd>⌘ 1</kbd></button>
+        <button class="nav-item" data-route="leads"><span class="nav-icon">◎</span><span>العملاء والفرص</span><em id="leadBadge">33</em></button>
+        <button class="nav-item" data-route="team"><span class="nav-icon">♧</span><span>فريق السيلز</span></button>
+        <button class="nav-item" data-route="offers"><span class="nav-icon">▤</span><span>العروض والصفقات</span></button>
+        <button class="nav-item" data-route="projects"><span class="nav-icon">▦</span><span>المشاريع</span></button>
+        <button class="nav-item" data-route="reports"><span class="nav-icon">▥</span><span>التقارير</span></button>
+      </nav>
+      <div class="nav-caption tools-caption">مساحة العمل</div>
+      <nav class="main-nav"><button class="nav-item" data-route="settings"><span class="nav-icon">⚙</span><span>الإعدادات</span></button></nav>
+      <div class="sidebar-bottom">
+        <div class="help-card"><div class="help-orb">✦</div><b>خلّي شغلك ماشي</b><p>سجّل المتابعة أول بأول عشان كل فرصة تفضل واضحة.</p><button data-route="leads">افتح العملاء <span>←</span></button></div>
+        <div class="profile-mini" id="profileMini"></div>
+      </div>
+    </aside>
+    <main class="main-area">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobileMenu" aria-label="فتح القائمة">☰</button>
+        <div class="crumb"><span>مَدار</span><b>/</b><strong id="crumbName">نظرة عامة</strong></div>
+        <div class="top-actions"><div class="global-search"><span>⌕</span><input id="globalSearch" placeholder="دور على عميل أو مشروع..."/><kbd>⌘ K</kbd></div><button class="icon-btn" id="notifyBtn" aria-label="التنبيهات">♧<i></i></button><div class="top-avatar" id="topAvatar">م</div></div>
+      </header>
+      <div class="demo-banner"><span>✦</span><span>قاعدة العملاء تعرض الأنشطة التي لديها رقم واتساب منشور في مصدر عام.</span><button id="dismissBanner" aria-label="إخفاء">×</button></div>
+      <section id="content" class="content-area"></section>
+      <footer class="footer"><span>مَدار <b>•</b> مساحة واحدة لكل شغلك</span><span>نسخة عرض محلية <i></i></span></footer>
+    </main>
+    <div id="modalRoot"></div>
+    <div class="toast-stack" id="toastStack"></div>
+  </div>
+</body>
+</html>
