@@ -158,7 +158,7 @@ export default async function handler(req, res) {
         on conflict(key) do update set failures=case when madar_login_attempts.window_started < now()-interval '15 minutes' then 1 else madar_login_attempts.failures+1 end,
         window_started=case when madar_login_attempts.window_started < now()-interval '15 minutes' then now() else madar_login_attempts.window_started end,
         locked_until=case when (case when madar_login_attempts.window_started < now()-interval '15 minutes' then 1 else madar_login_attempts.failures+1 end)>5 then now()+interval '15 minutes' else null end
-        returning failures,locked_until`);
+        returning failures,locked_until`, [key]);
       if (limit.rows[0].failures > 5 || limit.rows[0].locked_until > new Date()) return json(res, 429, { error: 'طلبات تسجيل كثيرة من نفس الشبكة. جرّب بعد ١٥ دقيقة.' });
       const secretPair = await passwordHash(password);
       try {
