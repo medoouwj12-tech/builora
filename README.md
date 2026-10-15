@@ -1,10 +1,10 @@
-# مَدار — CRM لفريق تطوير برمجيات
+# BUILDORA — CRM لفريق تطوير برمجيات
 
 واجهة عربية لإدارة العملاء والمبيعات والعروض والمشاريع، مجهزة للنشر كواجهة ثابتة على Vercel مع API يعمل بوظائف Vercel وقاعدة Neon PostgreSQL.
 
 ## النشر
 
-اتبع [دليل النشر بالعربي](نشر-مَدار-على-Vercel.txt). نفّذ `database/schema.sql` في Neon، ثم تأكد من وجود `DATABASE_URL` و`SESSION_SECRET` في إعدادات Vercel. لا ترفع أسرار الاتصال إلى GitHub.
+اتبع [دليل النشر بالعربي](نشر-BUILDORA-على-Vercel.txt). نفّذ `database/schema.sql` في Neon، ثم تأكد من وجود `DATABASE_URL` و`SESSION_SECRET` في إعدادات Vercel. لا ترفع أسرار الاتصال إلى GitHub.
 
 ## أول دخول
 
