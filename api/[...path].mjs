@@ -208,23 +208,22 @@ export default async function handler(req, res) {
     }
     if (method === 'POST' && path === '/api/users') {
       if (!isManager(user)) return json(res, 403, { error: 'الصلاحية دي للمدير فقط' });
-      const data = await body(req); const name = String(data.name || '').trim(); const username = String(data.username || '').trim().toLowerCase(); const password = String(data.password || '');
+      const data = await body(req);
+      if (data.action === 'approve' || data.action === 'reject') {
+        const id = String(data.id || '');
+        const approved = data.action === 'approve';
+        const result = approved
+          ? await db().query("update madar_users set approved=true where id=$1 and role='سيلز' and active=true and approved=false returning id", [id])
+          : await db().query("update madar_users set active=false where id=$1 and role='سيلز' and active=true and approved=false returning id", [id]);
+        return result.rowCount ? json(res, 200, { ok: true }) : json(res, 404, { error: 'طلب الحساب غير موجود أو تم التعامل معه' });
+      }
+      const name = String(data.name || '').trim(); const username = String(data.username || '').trim().toLowerCase(); const password = String(data.password || '');
       if (!name || !/^[a-zA-Z0-9_.@-]{3,48}$/.test(username) || password.length < 12) return json(res, 400, { error: 'اسم المستخدم مطلوب وكلمة المرور ١٢ حرفًا على الأقل' });
       const secretPair = await passwordHash(password);
       try {
         const result = await db().query("insert into madar_users(username,name,role,initials,color,password_salt,password_hash) values($1,$2,'سيلز',$3,$4,$5,$6) returning id,username,name,role,initials,color", [username, name, name.slice(0,1), ['#58d6a3','#a78bfa','#64a7ff','#f1a978'][Math.floor(Math.random()*4)], secretPair.salt, secretPair.hash]);
         return json(res, 201, { user: cleanUser(result.rows[0]) });
       } catch (error) { if (error.code === '23505') return json(res, 409, { error: 'اسم المستخدم مستخدم بالفعل' }); throw error; }
-    }
-    if (method === 'POST' && path.startsWith('/api/users/') && (path.endsWith('/approve') || path.endsWith('/reject'))) {
-      if (!isManager(user)) return json(res, 403, { error: 'الصلاحية دي للمدير فقط' });
-      const parts = path.split('/'); const action = parts.pop(); const id = parts.pop();
-      if (action === 'approve') {
-        const result = await db().query("update madar_users set approved=true where id=$1 and role='سيلز' and active=true and approved=false returning id", [id]);
-        return result.rowCount ? json(res, 200, { ok: true }) : json(res, 404, { error: 'طلب الحساب غير موجود أو تم التعامل معه' });
-      }
-      const result = await db().query("update madar_users set active=false where id=$1 and role='سيلز' and active=true and approved=false returning id", [id]);
-      return result.rowCount ? json(res, 200, { ok: true }) : json(res, 404, { error: 'طلب الحساب غير موجود أو تم التعامل معه' });
     }
     if (method === 'DELETE' && path.startsWith('/api/users/')) {
       if (!isManager(user)) return json(res, 403, { error: 'الصلاحية دي للمدير فقط' });

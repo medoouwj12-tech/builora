@@ -280,7 +280,7 @@
     const member = state.team.find(item => item.id === id && item.role === 'سيلز' && !item.approved);
     if (!member) return;
     try {
-      await apiRequest(`/api/users/${encodeURIComponent(id)}/${approve ? 'approve' : 'reject'}`, { method: 'POST' });
+      await apiRequest('/api/users', { method: 'POST', body: JSON.stringify({ action: approve ? 'approve' : 'reject', id }) });
       await loadApiState(currentUser); render(); toast(approve ? `تمت الموافقة على ${member.name}` : `تم رفض طلب ${member.name}`);
     } catch (error) { toast(error.message || 'تعذر تحديث طلب التسجيل'); }
   }
