@@ -65,9 +65,16 @@ alter table public.madar_projects enable row level security;
 alter table public.madar_settings enable row level security;
 alter table public.madar_login_attempts enable row level security;
 
-revoke all on public.madar_users, public.madar_leads, public.madar_activities,
-  public.madar_offers, public.madar_projects, public.madar_settings,
-  public.madar_login_attempts from anon, authenticated;
-grant all on public.madar_users, public.madar_leads, public.madar_activities,
-  public.madar_offers, public.madar_projects, public.madar_settings,
-  public.madar_login_attempts to service_role;
+-- Keep this schema usable on Neon and Supabase. The application connects as the
+-- database owner; service-role grants are added only when that Supabase role exists.
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'anon')
+     and exists (select 1 from pg_roles where rolname = 'authenticated') then
+    execute 'revoke all on public.madar_users, public.madar_leads, public.madar_activities, public.madar_offers, public.madar_projects, public.madar_settings, public.madar_login_attempts from anon, authenticated';
+  end if;
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    execute 'grant all on public.madar_users, public.madar_leads, public.madar_activities, public.madar_offers, public.madar_projects, public.madar_settings, public.madar_login_attempts to service_role';
+  end if;
+end
+$$;

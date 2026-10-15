@@ -1,10 +1,10 @@
 # مَدار — CRM لفريق تطوير برمجيات
 
-واجهة عربية لإدارة العملاء والمبيعات والعروض والمشاريع، مجهزة للنشر كواجهة ثابتة على Vercel مع API يعمل بوظائف Vercel وقاعدة Supabase PostgreSQL.
+واجهة عربية لإدارة العملاء والمبيعات والعروض والمشاريع، مجهزة للنشر كواجهة ثابتة على Vercel مع API يعمل بوظائف Vercel وقاعدة Neon PostgreSQL.
 
 ## النشر
 
-اتبع [دليل النشر بالعربي](نشر-مَدار-على-Vercel.txt). نفّذ `supabase/schema.sql` في Supabase، ثم عيّن `DATABASE_URL` و`SESSION_SECRET` في إعدادات Vercel. لا ترفع أسرار الاتصال إلى GitHub.
+اتبع [دليل النشر بالعربي](نشر-مَدار-على-Vercel.txt). نفّذ `database/schema.sql` في Neon، ثم تأكد من وجود `DATABASE_URL` و`SESSION_SECRET` في إعدادات Vercel. لا ترفع أسرار الاتصال إلى GitHub.
 
 ## أول دخول
 
@@ -21,10 +21,10 @@
 - `public/`: نسخة ملفات الواجهة التي يقدمها Vercel. نسخ الملفات في جذر المجلد تستخدم للتشغيل المحلي.
 - `index.html`, `styles.css`, `app.js`: ملفات واجهة التشغيل المحلي.
 - `api/[...path].mjs`: تسجيل الدخول، الصلاحيات، وحفظ البيانات.
-- `supabase/schema.sql`: مخطط قاعدة البيانات وصلاحياتها.
+- `database/schema.sql`: مخطط PostgreSQL لقاعدة Neon أو Supabase.
 - `seed-data.json`: بيانات البداية المصنفة حسب روابط واتساب المنشورة.
 - `egypt_business_leads.csv`, `egypt_business_leads.xlsx`: قائمة العملاء المفلترة.
 
 ## التشغيل محليًا
 
-`run-madar.bat` يشغّل نسخة محلية منفصلة، تحفظ بياناتها داخل `data/`. النشر على Vercel يستخدم Supabase ولا يقرأ هذا الملف المحلي.
+`run-madar.bat` يشغّل نسخة محلية منفصلة، تحفظ بياناتها داخل `data/`. النشر على Vercel يستخدم Neon ولا يقرأ هذا الملف المحلي.
