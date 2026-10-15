@@ -64,7 +64,7 @@ function setSession(res, user) {
   res.setHeader('set-cookie', `${COOKIE}=${sessionToken(user.id, expires)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200${secure}`);
   return json(res, 200, { user: cleanUser(user) });
 }
-function cleanUser(u) { return { id: u.id, username: u.username, email: u.username, name: u.name, role: u.role, initials: u.initials, color: u.color }; }
+function cleanUser(u) { return { id: u.id, username: u.username, email: u.username, name: u.name, role: u.role, initials: u.initials, color: u.color, approved: u.approved !== false }; }
 function cleanLead(row) { return { ...row.payload, id: row.id, owner: row.owner_id || '' }; }
 function digitsFromWhatsApp(value) {
   const match = String(value || '').match(/(?:wa\.me\/|phone=)(\+?\d{10,15})/i);
@@ -74,7 +74,7 @@ function validWhatsAppLead(item) { return Boolean(digitsFromWhatsApp(item?.whats
 async function auth(req) {
   const parsed = verifyToken(parseCookie(req, COOKIE));
   if (!parsed) return null;
-  const result = await db().query('select id, username, name, role, initials, color from madar_users where id=$1 and active=true', [parsed.id]);
+  const result = await db().query('select id, username, name, role, initials, color, approved from madar_users where id=$1 and active=true and approved=true', [parsed.id]);
   return result.rows[0] || null;
 }
 function isManager(user) { return user?.role === 'المدير'; }
@@ -138,7 +138,7 @@ export default async function handler(req, res) {
         await client.query('select pg_advisory_xact_lock(731926041)');
         if ((await client.query('select 1 from madar_users where role=$1 and active=true limit 1', ['المدير'])).rowCount) throw Object.assign(new Error('تم إعداد حساب المدير بالفعل'), { status: 409 });
         const secretPair = await passwordHash(password);
-        const insert = await client.query("insert into madar_users(username,name,role,initials,color,password_salt,password_hash) values($1,$2,'المدير',$3,'#4ccfc1',$4,$5) returning id,username,name,role,initials,color", [username, name, name.slice(0,1), secretPair.salt, secretPair.hash]);
+        const insert = await client.query("insert into madar_users(username,name,role,initials,color,password_salt,password_hash,approved) values($1,$2,'المدير',$3,'#4ccfc1',$4,$5,true) returning id,username,name,role,initials,color,approved", [username, name, name.slice(0,1), secretPair.salt, secretPair.hash]);
         await client.query('insert into madar_settings(id,target,banner) values(1,250000,true) on conflict(id) do nothing');
         for (const lead of seedLeads) {
           if (!validWhatsAppLead(lead)) continue;
@@ -149,13 +149,30 @@ export default async function handler(req, res) {
       });
       return setSession(res, user);
     }
+    if (method === 'POST' && path === '/api/register') {
+      const data = await body(req); const name = String(data.name || '').trim(); const username = String(data.username || '').trim().toLowerCase(); const password = String(data.password || '');
+      if (name.length < 2 || name.length > 80 || !/^[a-zA-Z0-9_.@-]{3,48}$/.test(username) || password.length < 12 || password.length > 256) return json(res, 400, { error: 'اكتب اسمك واسم مستخدم صالحًا وكلمة مرور من ١٢ حرفًا على الأقل' });
+      const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
+      const key = `register:${crypto.createHash('sha256').update(ip).digest('hex')}`;
+      const limit = await db().query(`insert into madar_login_attempts(key,failures,locked_until) values($1,1,null)
+        on conflict(key) do update set failures=case when madar_login_attempts.window_started < now()-interval '15 minutes' then 1 else madar_login_attempts.failures+1 end,
+        window_started=case when madar_login_attempts.window_started < now()-interval '15 minutes' then now() else madar_login_attempts.window_started end,
+        locked_until=case when (case when madar_login_attempts.window_started < now()-interval '15 minutes' then 1 else madar_login_attempts.failures+1 end)>5 then now()+interval '15 minutes' else null end
+        returning failures,locked_until`);
+      if (limit.rows[0].failures > 5 || limit.rows[0].locked_until > new Date()) return json(res, 429, { error: 'طلبات تسجيل كثيرة من نفس الشبكة. جرّب بعد ١٥ دقيقة.' });
+      const secretPair = await passwordHash(password);
+      try {
+        const result = await db().query("insert into madar_users(username,name,role,initials,color,password_salt,password_hash,active,approved) values($1,$2,'سيلز',$3,$4,$5,$6,true,false) returning id,username,name,role,initials,color,approved", [username, name, name.slice(0,1), ['#58d6a3','#a78bfa','#64a7ff','#f1a978'][Math.floor(Math.random()*4)], secretPair.salt, secretPair.hash]);
+        return json(res, 201, { pendingApproval: true, user: cleanUser(result.rows[0]) });
+      } catch (error) { if (error.code === '23505') return json(res, 409, { error: 'اسم المستخدم مستخدم بالفعل' }); throw error; }
+    }
     if (method === 'POST' && path === '/api/login') {
       const data = await body(req); const username = String(data.username || '').trim().toLowerCase(); const password = String(data.password || '');
       const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
       const key = crypto.createHash('sha256').update(`${ip}|${username}`).digest('hex');
       const blocked = await db().query('select locked_until from madar_login_attempts where key=$1 and locked_until>now()', [key]);
       if (blocked.rowCount) return json(res, 429, { error: 'محاولات دخول كثيرة. جرّب بعد ١٥ دقيقة.' });
-      const found = await db().query('select id,username,name,role,initials,color,password_salt,password_hash from madar_users where username=$1 and active=true', [username]);
+      const found = await db().query('select id,username,name,role,initials,color,approved,password_salt,password_hash from madar_users where username=$1 and active=true', [username]);
       const hash = found.rowCount ? await passwordHash(password, found.rows[0].password_salt) : null;
       if (!found.rowCount || !eqHex(hash.hash, found.rows[0].password_hash)) {
         await db().query(`insert into madar_login_attempts(key,failures,locked_until) values($1,1,null)
@@ -165,6 +182,7 @@ export default async function handler(req, res) {
         return json(res, 401, { error: 'اسم المستخدم أو كلمة المرور غير صحيحين' });
       }
       await db().query('delete from madar_login_attempts where key=$1', [key]);
+      if (!found.rows[0].approved) return json(res, 403, { error: 'طلبك وصل للمدير. هتقدر تدخل بعد ما يوافق على حسابك.' });
       return setSession(res, found.rows[0]);
     }
     if (method === 'POST' && path === '/api/logout') {
@@ -178,7 +196,7 @@ export default async function handler(req, res) {
     if (method === 'GET' && path === '/api/state') {
       const manager = isManager(user);
       const [team, leads, activities, offers, projects, settings] = await Promise.all([
-        db().query('select id,username,name,role,initials,color from madar_users where active=true order by created_at'),
+        db().query(manager ? 'select id,username,name,role,initials,color,approved from madar_users where active=true order by created_at' : 'select id,username,name,role,initials,color,approved from madar_users where id=$1 and active=true and approved=true', manager ? [] : [user.id]),
         db().query(manager ? 'select id,payload,owner_id from madar_leads order by created_at desc' : 'select id,payload,owner_id from madar_leads where owner_id is null or owner_id=$1 order by created_at desc', manager ? [] : [user.id]),
         db().query(manager ? 'select id,payload,user_id from madar_activities order by created_at desc limit 5000' : 'select id,payload,user_id from madar_activities where user_id=$1 order by created_at desc limit 5000', manager ? [] : [user.id]),
         db().query(manager ? 'select id,payload,owner_id from madar_offers order by created_at desc' : 'select id,payload,owner_id from madar_offers where owner_id=$1 order by created_at desc', manager ? [] : [user.id]),
@@ -197,6 +215,16 @@ export default async function handler(req, res) {
         const result = await db().query("insert into madar_users(username,name,role,initials,color,password_salt,password_hash) values($1,$2,'سيلز',$3,$4,$5,$6) returning id,username,name,role,initials,color", [username, name, name.slice(0,1), ['#58d6a3','#a78bfa','#64a7ff','#f1a978'][Math.floor(Math.random()*4)], secretPair.salt, secretPair.hash]);
         return json(res, 201, { user: cleanUser(result.rows[0]) });
       } catch (error) { if (error.code === '23505') return json(res, 409, { error: 'اسم المستخدم مستخدم بالفعل' }); throw error; }
+    }
+    if (method === 'POST' && path.startsWith('/api/users/') && (path.endsWith('/approve') || path.endsWith('/reject'))) {
+      if (!isManager(user)) return json(res, 403, { error: 'الصلاحية دي للمدير فقط' });
+      const parts = path.split('/'); const action = parts.pop(); const id = parts.pop();
+      if (action === 'approve') {
+        const result = await db().query("update madar_users set approved=true where id=$1 and role='سيلز' and active=true and approved=false returning id", [id]);
+        return result.rowCount ? json(res, 200, { ok: true }) : json(res, 404, { error: 'طلب الحساب غير موجود أو تم التعامل معه' });
+      }
+      const result = await db().query("update madar_users set active=false where id=$1 and role='سيلز' and active=true and approved=false returning id", [id]);
+      return result.rowCount ? json(res, 200, { ok: true }) : json(res, 404, { error: 'طلب الحساب غير موجود أو تم التعامل معه' });
     }
     if (method === 'DELETE' && path.startsWith('/api/users/')) {
       if (!isManager(user)) return json(res, 403, { error: 'الصلاحية دي للمدير فقط' });

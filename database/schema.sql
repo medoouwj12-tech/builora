@@ -10,8 +10,10 @@ create table if not exists public.madar_users (
   password_salt text not null,
   password_hash text not null,
   active boolean not null default true,
+  approved boolean not null default true,
   created_at timestamptz not null default now()
 );
+alter table public.madar_users add column if not exists approved boolean not null default true;
 create unique index if not exists madar_one_active_manager on public.madar_users(role) where role='المدير' and active=true;
 
 create table if not exists public.madar_leads (
