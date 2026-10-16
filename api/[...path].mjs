@@ -89,6 +89,31 @@ async function transaction(fn) {
   catch (error) { await client.query('rollback'); throw error; }
   finally { client.release(); }
 }
+async function seedPublicLeadsOnce() {
+  const version = 'whatsapp-public-leads-2026-10-16-v1';
+  await transaction(async client => {
+    await client.query(`create table if not exists public.madar_seed_imports (
+      version text primary key,
+      applied_at timestamptz not null default now()
+    )`);
+    await client.query('alter table public.madar_seed_imports enable row level security');
+    await client.query('revoke all on public.madar_seed_imports from public');
+    await client.query('select pg_advisory_xact_lock($1)', [731926042]);
+    const marked = await client.query('insert into public.madar_seed_imports(version) values($1) on conflict(version) do nothing returning version', [version]);
+    if (!marked.rowCount) return;
+    const seenNumbers = new Set((await client.query('select whatsapp_number from madar_leads')).rows.map(row => row.whatsapp_number));
+    for (const lead of seedLeads) {
+      const digits = digitsFromWhatsApp(lead?.whatsapp);
+      if (!digits || seenNumbers.has(digits)) continue;
+      const { owner, ...payload } = lead;
+      payload.phones = `واتساب: +${digits}`;
+      const inserted = await client.query(`insert into madar_leads(id,payload,owner_id,whatsapp_number)
+        select $1,$2,null,$3 where not exists(select 1 from madar_leads where whatsapp_number=$3)
+        on conflict(id) do nothing returning whatsapp_number`, [String(lead.id), payload, digits]);
+      if (inserted.rowCount) seenNumbers.add(digits);
+    }
+  });
+}
 function cleanPath(url) { return decodeURIComponent(new URL(url, 'https://madar.invalid').pathname).replace(/\/$/, ''); }
 function csrfCheck(req, res) {
   const origin = req.headers.origin;
@@ -195,6 +220,7 @@ export default async function handler(req, res) {
     const user = await requireUser(req, res); if (!user) return;
     if (method === 'GET' && path === '/api/state') {
       const manager = isManager(user);
+      if (manager) await seedPublicLeadsOnce();
       const [team, leads, activities, offers, projects, settings] = await Promise.all([
         db().query(manager ? 'select id,username,name,role,initials,color,approved from madar_users where active=true order by created_at' : 'select id,username,name,role,initials,color,approved from madar_users where id=$1 and active=true and approved=true', manager ? [] : [user.id]),
         db().query(manager ? 'select id,payload,owner_id from madar_leads order by created_at desc' : 'select id,payload,owner_id from madar_leads where owner_id is null or owner_id=$1 order by created_at desc', manager ? [] : [user.id]),
