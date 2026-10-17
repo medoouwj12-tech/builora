@@ -89,8 +89,7 @@ async function transaction(fn) {
   catch (error) { await client.query('rollback'); throw error; }
   finally { client.release(); }
 }
-async function seedPublicLeadsOnce() {
-  const version = 'whatsapp-public-leads-2026-10-16-v1';
+async function seedPublicLeadsOnce(version = 'whatsapp-public-leads-2026-10-16-v1', leadFilter = () => true) {
   await transaction(async client => {
     await client.query(`create table if not exists public.madar_seed_imports (
       version text primary key,
@@ -103,6 +102,7 @@ async function seedPublicLeadsOnce() {
     if (!marked.rowCount) return;
     const seenNumbers = new Set((await client.query('select whatsapp_number from madar_leads')).rows.map(row => row.whatsapp_number));
     for (const lead of seedLeads) {
+      if (!leadFilter(lead)) continue;
       const digits = digitsFromWhatsApp(lead?.whatsapp);
       if (!digits || seenNumbers.has(digits)) continue;
       const { owner, ...payload } = lead;
@@ -220,7 +220,13 @@ export default async function handler(req, res) {
     const user = await requireUser(req, res); if (!user) return;
     if (method === 'GET' && path === '/api/state') {
       const manager = isManager(user);
-      if (manager) await seedPublicLeadsOnce();
+      if (manager) {
+        await seedPublicLeadsOnce();
+        await seedPublicLeadsOnce('whatsapp-public-suppliers-2026-10-17-v1', lead => {
+          const batch = Number(String(lead?.id || '').replace('BWA-2026-', ''));
+          return Number.isInteger(batch) && batch >= 67 && batch <= 98;
+        });
+      }
       const [team, leads, activities, offers, projects, settings] = await Promise.all([
         db().query(manager ? 'select id,username,name,role,initials,color,approved from madar_users where active=true order by created_at' : 'select id,username,name,role,initials,color,approved from madar_users where id=$1 and active=true and approved=true', manager ? [] : [user.id]),
         db().query(manager ? 'select id,payload,owner_id from madar_leads order by created_at desc' : 'select id,payload,owner_id from madar_leads where owner_id is null or owner_id=$1 order by created_at desc', manager ? [] : [user.id]),
