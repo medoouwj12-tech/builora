@@ -1,4 +1,4 @@
-const CACHE_NAME = 'buildora-shell-v2';
+const CACHE_NAME = 'buildora-shell-v3';
 const APP_SHELL = [
   '/',
   '/index.html',
