@@ -242,6 +242,10 @@ export default async function handler(req, res) {
           const batch = Number(String(lead?.id || '').replace('BWA-2026-', ''));
           return Number.isInteger(batch) && batch >= 154 && batch <= 203;
         });
+        await seedPublicLeadsOnce('whatsapp-global-leads-2026-10-21-v1', lead => {
+          const batch = Number(String(lead?.id || '').replace('BWA-2026-', ''));
+          return Number.isInteger(batch) && batch >= 204 && batch <= 245;
+        });
       }
       const [team, leads, activities, offers, projects, settings] = await Promise.all([
         db().query(manager ? 'select id,username,name,role,initials,color,approved from madar_users where active=true order by created_at' : 'select id,username,name,role,initials,color,approved from madar_users where id=$1 and active=true and approved=true', manager ? [] : [user.id]),
