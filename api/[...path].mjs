@@ -114,6 +114,32 @@ async function seedPublicLeadsOnce(version = 'whatsapp-public-leads-2026-10-16-v
     }
   });
 }
+async function removePublicLeadsOnce(version, fromId, toId, user) {
+  return transaction(async client => {
+    await client.query(`create table if not exists public.madar_seed_imports (
+      version text primary key,
+      applied_at timestamptz not null default now()
+    )`);
+    await client.query('alter table public.madar_seed_imports enable row level security');
+    await client.query('revoke all on public.madar_seed_imports from public');
+    await client.query('select pg_advisory_xact_lock($1)', [731926042]);
+    const marked = await client.query('insert into public.madar_seed_imports(version) values($1) on conflict(version) do nothing returning version', [version]);
+    if (!marked.rowCount) return 0;
+    const deleted = await client.query('delete from madar_leads where id >= $1 and id <= $2 returning id', [fromId, toId]);
+    if (deleted.rowCount) {
+      const activity = {
+        id: crypto.randomUUID(),
+        kind: 'system',
+        title: 'حذف دفعة عملاء قديمة',
+        detail: `حذف ${deleted.rowCount} سجلًا من دفعة العملاء القديمة، IDs ${fromId} إلى ${toId}.`,
+        userId: user.id,
+        at: new Date().toISOString()
+      };
+      await client.query('insert into madar_activities(id,payload,user_id,lead_id) values($1,$2,$3,null)', [activity.id, activity, user.id]);
+    }
+    return deleted.rowCount;
+  });
+}
 function cleanPath(url) { return decodeURIComponent(new URL(url, 'https://madar.invalid').pathname).replace(/\/$/, ''); }
 function csrfCheck(req, res) {
   const origin = req.headers.origin;
@@ -246,6 +272,11 @@ export default async function handler(req, res) {
           const batch = Number(String(lead?.id || '').replace('BWA-2026-', ''));
           return Number.isInteger(batch) && batch >= 204 && batch <= 245;
         });
+        await seedPublicLeadsOnce('whatsapp-banha-delivery-leads-2026-11-10-v1', lead => {
+          const batch = Number(String(lead?.id || '').replace('BWA-2026-', ''));
+          return Number.isInteger(batch) && batch >= 246 && batch <= 249;
+        });
+        await removePublicLeadsOnce('remove-older-public-leads-2026-11-10-v1', 'BWA-2026-0146', 'BWA-2026-0245', user);
       }
       const [team, leads, activities, offers, projects, settings] = await Promise.all([
         db().query(manager ? 'select id,username,name,role,initials,color,approved from madar_users where active=true order by created_at' : 'select id,username,name,role,initials,color,approved from madar_users where id=$1 and active=true and approved=true', manager ? [] : [user.id]),
