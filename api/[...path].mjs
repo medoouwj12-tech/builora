@@ -276,6 +276,10 @@ export default async function handler(req, res) {
           const batch = Number(String(lead?.id || '').replace('BWA-2026-', ''));
           return Number.isInteger(batch) && batch >= 246 && batch <= 249;
         });
+        await seedPublicLeadsOnce('whatsapp-egypt-delivery-leads-2026-11-10-v1', lead => {
+          const batch = Number(String(lead?.id || '').replace('BWA-2026-', ''));
+          return Number.isInteger(batch) && batch >= 250 && batch <= 296;
+        });
         await removePublicLeadsOnce('remove-older-public-leads-2026-11-10-v1', 'BWA-2026-0146', 'BWA-2026-0245', user);
       }
       const [team, leads, activities, offers, projects, settings] = await Promise.all([
